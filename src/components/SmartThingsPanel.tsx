@@ -17,7 +17,10 @@ import {
   Sun,
   Moon,
   Laptop,
-  Film
+  Film,
+  ExternalLink,
+  Download,
+  Sparkles
 } from 'lucide-react';
 import { SmartDevice } from '../types';
 import { playJarvisBeep, playChime } from '../utils/audio';
@@ -29,6 +32,7 @@ interface SmartThingsPanelProps {
   onUpdateDevice: (updatedDevice: SmartDevice) => void;
   onExecuteCommand: (deviceId: string, command: string, value?: number) => void;
   onAddXp: (amount: number, reason: string) => void;
+  onSetAllDevices?: (devices: SmartDevice[]) => void;
 }
 
 export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
@@ -37,12 +41,14 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
   onSaveToken,
   onUpdateDevice,
   onExecuteCommand,
-  onAddXp
+  onAddXp,
+  onSetAllDevices
 }) => {
   const [tokenInput, setTokenInput] = useState(smartThingsToken);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isTestingToken, setIsTestingToken] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [detectedRealDevices, setDetectedRealDevices] = useState<any[]>([]);
   const [logs, setLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString('pt-BR')}] Hub SmartThings inicializado. 6 dispositivos sincronizados.`,
     `[${new Date().toLocaleTimeString('pt-BR')}] Protocolo de automação residencial monitorando telemetria.`
@@ -135,12 +141,14 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
   const handleTestToken = async () => {
     setIsTestingToken(true);
     setTestResult(null);
+    setDetectedRealDevices([]);
     try {
       if (!tokenInput.trim()) {
         setTestResult({
           success: true,
           message: 'Modo de Simulação Avançada ativo. Todos os dispositivos respondem localmente.'
         });
+        onSaveToken('');
         setIsTestingToken(false);
         return;
       }
@@ -153,25 +161,84 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const realItems = data.items || [];
+        setDetectedRealDevices(realItems);
+
         setTestResult({
           success: true,
-          message: 'Conexão com a nuvem Samsung SmartThings autenticada com sucesso!'
+          message: `Conexão autenticada com sucesso! ${realItems.length} dispositivo(s) real(is) detectado(s) na sua conta Samsung SmartThings.`
         });
         onSaveToken(tokenInput.trim());
+        addLog(`Nuvem Samsung SmartThings conectada. ${realItems.length} dispositivos disponíveis.`);
+        playChime();
+        onAddXp(50, 'Conexão com Samsung SmartThings API');
       } else {
         setTestResult({
           success: false,
-          message: `Código ${res.status}: Verifique se seu token possui as permissões 'devices:read' e 'devices:write'.`
+          message: `Código de erro ${res.status}: Verifique se seu token foi copiado integralmente e possui as permissões 'devices:read' e 'devices:write'.`
         });
       }
     } catch (e: any) {
       setTestResult({
         success: false,
-        message: 'Não foi possível validar o token diretamente. O modo híbrido de contingência continuará operando.'
+        message: 'Não foi possível conectar à API da Samsung. Verifique sua conexão à internet ou o token informado.'
       });
     } finally {
       setIsTestingToken(false);
     }
+  };
+
+  const handleImportRealDevices = () => {
+    if (!detectedRealDevices.length || !onSetAllDevices) return;
+
+    const importedList: SmartDevice[] = detectedRealDevices.map((item: any) => {
+      const name = item.label || item.name || 'Dispositivo SmartThings';
+      const id = item.deviceId;
+      const lower = name.toLowerCase();
+
+      let type: SmartDevice['type'] = 'light';
+      let status: SmartDevice['status'] = 'off';
+      let value: number | undefined = undefined;
+
+      if (lower.includes('ar') || lower.includes('clima') || lower.includes('windfree') || lower.includes('ac')) {
+        type = 'thermostat';
+        value = 22;
+      } else if (lower.includes('fechadura') || lower.includes('tranca') || lower.includes('porta') || lower.includes('lock')) {
+        type = 'lock';
+        status = 'locked';
+      } else if (lower.includes('cortina') || lower.includes('persiana') || lower.includes('shade')) {
+        type = 'curtain';
+        status = 'open';
+      } else if (lower.includes('tv') || lower.includes('televis')) {
+        type = 'tv';
+      } else if (lower.includes('tomada') || lower.includes('plug') || lower.includes('energy')) {
+        type = 'switch';
+      } else {
+        type = 'light';
+        value = 80;
+      }
+
+      return {
+        id,
+        name,
+        room: item.roomName || 'Residência',
+        type,
+        status,
+        value,
+        powerConsumptionWatts: type === 'tv' ? 120 : type === 'thermostat' ? 850 : type === 'switch' ? 45 : 12,
+        lastUpdated: new Date().toISOString()
+      };
+    });
+
+    onSetAllDevices(importedList);
+    playChime();
+    addLog(`${importedList.length} dispositivos reais do Samsung SmartThings sincronizados.`);
+    onAddXp(60, 'Sincronização de dispositivos reais SmartThings');
+    setTestResult({
+      success: true,
+      message: `${importedList.length} dispositivo(s) real(is) importado(s) para o controle do J.A.R.V.I.S.!`
+    });
   };
 
   // Calculate total power consumption
@@ -220,62 +287,130 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
 
       {/* Token configuration drawer */}
       {isConfigOpen && (
-        <div className="p-5 hud-panel rounded-2xl border border-cyan-500/40 bg-slate-900/90 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-hud font-semibold text-cyan-200 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-cyan-400" />
-              INTEGRAÇÃO OFICIAL SAMSUNG SMARTTHINGS (REST API)
-            </h3>
+        <div className="p-6 hud-panel rounded-3xl border border-cyan-400/50 bg-slate-950/95 space-y-6 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-cyan-900/50 pb-3">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-cyan-400" />
+              <h3 className="text-base font-hud font-bold text-cyan-200 tracking-wide">
+                COMO INTEGRAR COM O APLICATIVO SAMSUNG SMARTTHINGS
+              </h3>
+            </div>
             <button
               onClick={() => setIsConfigOpen(false)}
-              className="text-xs text-slate-400 hover:text-white"
+              className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-900"
             >
               Fechar
             </button>
           </div>
 
-          <p className="text-xs text-slate-300 font-sans leading-relaxed">
-            Você pode conectar seus dispositivos reais do Samsung SmartThings inserindo seu{' '}
-            <strong className="text-cyan-300">Personal Access Token (PAT)</strong> gerado em{' '}
-            <a
-              href="https://account.smartthings.com/tokens"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 underline hover:text-cyan-300"
-            >
-              account.smartthings.com/tokens
-            </a>
-            . Se preferir rodar no ambiente de demonstração e simulação de alta precisão, deixe vazio.
-          </p>
+          {/* 4-Step Visual Tutorial */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-2xl border border-cyan-900/50 bg-slate-900/60 space-y-2">
+              <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-400 text-cyan-300 font-hud font-bold text-xs flex items-center justify-center">
+                1
+              </div>
+              <h4 className="font-tech font-bold text-xs text-slate-100">Portal de Tokens</h4>
+              <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                Acesse o portal oficial de tokens de desenvolvedor da Samsung no seu navegador.
+              </p>
+              <a
+                href="https://account.smartthings.com/tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-tech text-cyan-400 hover:underline pt-1"
+              >
+                <span>Abrir portal</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="password"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              placeholder="Cole seu SmartThings Personal Access Token aqui (ex: 8b7a...)"
-              className="flex-1 bg-slate-950 border border-cyan-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-mono"
-            />
-            <button
-              onClick={handleTestToken}
-              disabled={isTestingToken}
-              className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              {isTestingToken ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              <span>{tokenInput.trim() ? 'Validar & Salvar' : 'Ativar Modo Simulação'}</span>
-            </button>
+            <div className="p-3.5 rounded-2xl border border-cyan-900/50 bg-slate-900/60 space-y-2">
+              <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-400 text-cyan-300 font-hud font-bold text-xs flex items-center justify-center">
+                2
+              </div>
+              <h4 className="font-tech font-bold text-xs text-slate-100">Mesma Conta Samsung</h4>
+              <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                Faça login usando o mesmo email e senha da conta Samsung cadastrada no SmartThings do seu smartphone.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl border border-cyan-900/50 bg-slate-900/60 space-y-2">
+              <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-400 text-cyan-300 font-hud font-bold text-xs flex items-center justify-center">
+                3
+              </div>
+              <h4 className="font-tech font-bold text-xs text-slate-100">Gerar Token (PAT)</h4>
+              <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                Clique em <strong>"Generate new token"</strong>, nomeie <code className="text-cyan-300">JARVIS</code> e marque as caixas de <em>Devices</em>, <em>Locations</em> e <em>Scenes</em>.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl border border-cyan-900/50 bg-slate-900/60 space-y-2">
+              <div className="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-400 text-cyan-300 font-hud font-bold text-xs flex items-center justify-center">
+                4
+              </div>
+              <h4 className="font-tech font-bold text-xs text-slate-100">Validar & Sincronizar</h4>
+              <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                Cole o código do token abaixo. O J.A.R.V.I.S. vai testar a conexão e importar seus aparelhos reais!
+              </p>
+            </div>
           </div>
 
+          {/* Token Input Bar */}
+          <div className="space-y-3 pt-2">
+            <label className="text-xs font-hud text-cyan-300 block">
+              SEU SMARTTHINGS PERSONAL ACCESS TOKEN (PAT)
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="password"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="Cole seu SmartThings Personal Access Token aqui (ex: 8b7a9f...)"
+                className="flex-1 bg-slate-900 border border-cyan-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-mono"
+              />
+              <button
+                onClick={handleTestToken}
+                disabled={isTestingToken}
+                className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-tech font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-50"
+              >
+                {isTestingToken ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>{tokenInput.trim() ? 'Validar Conexão' : 'Ativar Modo Simulação'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Result Banner & Real Devices Importer */}
           {testResult && (
             <div
-              className={`p-3 rounded-xl text-xs font-tech flex items-center gap-2 ${
+              className={`p-4 rounded-2xl text-xs font-tech space-y-3 ${
                 testResult.success
-                  ? 'bg-emerald-950/60 border border-emerald-500/50 text-emerald-300'
-                  : 'bg-rose-950/60 border border-rose-500/50 text-rose-300'
+                  ? 'bg-emerald-950/70 border border-emerald-500/60 text-emerald-200'
+                  : 'bg-rose-950/70 border border-rose-500/60 text-rose-200'
               }`}
             >
-              {testResult.success ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-              <span>{testResult.message}</span>
+              <div className="flex items-center gap-2">
+                {testResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                )}
+                <span className="font-semibold">{testResult.message}</span>
+              </div>
+
+              {testResult.success && detectedRealDevices.length > 0 && onSetAllDevices && (
+                <div className="pt-2 border-t border-emerald-800/40 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-[11px] text-emerald-300 font-sans">
+                    Deseja substituir os aparelhos de demonstração pelos {detectedRealDevices.length} dispositivos reais da sua casa?
+                  </span>
+                  <button
+                    onClick={handleImportRealDevices}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-tech font-bold text-xs flex items-center gap-1.5 shadow-md transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Sincronizar Dispositivos Reais ({detectedRealDevices.length})</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

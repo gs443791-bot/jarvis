@@ -179,6 +179,11 @@ export default function App() {
     setSmartDevices((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
   };
 
+  const handleSetAllDevices = (newDevices: SmartDevice[]) => {
+    setSmartDevices(newDevices);
+    setStoredData(STORAGE_KEYS.SMART_DEVICES, newDevices);
+  };
+
   const handleSaveToken = (token: string) => {
     setSmartThingsToken(token);
     setStoredData(STORAGE_KEYS.SMARTTHINGS_TOKEN, token);
@@ -296,6 +301,7 @@ export default function App() {
             onUpdateDevice={handleUpdateDevice}
             onExecuteCommand={handleExecuteDeviceCommand}
             onAddXp={handleAddXp}
+            onSetAllDevices={handleSetAllDevices}
           />
         )}
 
