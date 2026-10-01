@@ -1,0 +1,7 @@
+{
+  "name": "J.A.R.V.I.S. — Assistente Pessoal & Hub Inteligente",
+  "description": "Sistema de inteligência pessoal inspirado no Homem de Ferro: automação residencial SmartThings, rotina, mentor financeiro, meditações e versículos diários, calendário inteligente, gamificação Arc Reactor e cursos de tecnologia gratuitos.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
