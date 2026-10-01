@@ -10,7 +10,10 @@ import {
   PieChart,
   Calculator,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  RotateCcw,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { FinancialTransaction, FinancialGoal } from '../types';
 import { playJarvisBeep, playChime } from '../utils/audio';
@@ -19,6 +22,8 @@ interface FinanceMentorPanelProps {
   transactions: FinancialTransaction[];
   goals: FinancialGoal[];
   onAddTransaction: (transaction: FinancialTransaction) => void;
+  onResetFinances: () => void;
+  onDeleteTransaction?: (id: string) => void;
   onAddXp: (amount: number, reason: string) => void;
 }
 
@@ -26,9 +31,12 @@ export const FinanceMentorPanel: React.FC<FinanceMentorPanelProps> = ({
   transactions,
   goals,
   onAddTransaction,
+  onResetFinances,
+  onDeleteTransaction,
   onAddXp
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -111,13 +119,27 @@ export const FinanceMentorPanel: React.FC<FinanceMentorPanelProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-tech font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Registrar Transação</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => {
+              playJarvisBeep(620, 0.05);
+              setIsResetConfirmOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl border border-rose-900/60 bg-rose-950/40 hover:bg-rose-900/60 hover:border-rose-500 text-rose-300 font-tech font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+            title="Zerar todas as receitas, despesas e saldo registrado"
+          >
+            <RotateCcw className="w-4 h-4 text-rose-400" />
+            <span>Zerar Finanças</span>
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-tech font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Registrar Transação</span>
+          </button>
+        </div>
       </div>
 
       {/* Financial Health KPIs */}
@@ -314,40 +336,62 @@ export const FinanceMentorPanel: React.FC<FinanceMentorPanelProps> = ({
           <span className="text-slate-500">{transactions.length} registros</span>
         </div>
 
-        <div className="divide-y divide-cyan-950/60">
-          {transactions.map((t) => (
-            <div key={t.id} className="py-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    t.type === 'income'
-                      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
-                      : 'bg-rose-950/80 text-rose-400 border border-rose-800'
-                  }`}
-                >
-                  {t.type === 'income' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                </div>
+        {transactions.length === 0 ? (
+          <div className="py-8 text-center text-slate-500 font-tech">
+            <DollarSign className="w-8 h-8 mx-auto mb-2 text-slate-600 opacity-50" />
+            <p className="text-xs text-slate-400">Suas finanças estão totalmente zeradas.</p>
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              Nenhuma receita ou despesa registrada. Clique em "Registrar Transação" para começar um novo período!
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-cyan-950/60">
+            {transactions.map((t) => (
+              <div key={t.id} className="py-3 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      t.type === 'income'
+                        ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
+                        : 'bg-rose-950/80 text-rose-400 border border-rose-800'
+                    }`}
+                  >
+                    {t.type === 'income' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                  </div>
 
-                <div>
-                  <h5 className="font-tech font-bold text-xs text-slate-100">{t.description}</h5>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-sans">
-                    <span>{t.category}</span>
-                    <span>•</span>
-                    <span>{t.date}</span>
+                  <div>
+                    <h5 className="font-tech font-bold text-xs text-slate-100">{t.description}</h5>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-sans">
+                      <span>{t.category}</span>
+                      <span>•</span>
+                      <span>{t.date}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                className={`font-hud font-bold text-xs ${
-                  t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
-                }`}
-              >
-                {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`font-hud font-bold text-xs ${
+                      t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+
+                  {onDeleteTransaction && (
+                    <button
+                      onClick={() => onDeleteTransaction(t.id)}
+                      className="p-1.5 text-slate-600 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors"
+                      title="Excluir lançamento"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Add Transaction Modal */}
@@ -429,6 +473,51 @@ export const FinanceMentorPanel: React.FC<FinanceMentorPanelProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação: Zerar Finanças */}
+      {isResetConfirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="hud-panel rounded-3xl p-6 border border-rose-500/50 bg-slate-950 w-full max-w-md space-y-4 relative shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-400 flex items-center justify-center flex-shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-hud font-bold text-slate-100">
+                  Zerar Todas as Finanças
+                </h3>
+                <p className="text-xs text-slate-400 font-sans">
+                  Protocolo de redefinição de fluxo financeiro
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 font-sans leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+              Tem certeza que deseja zerar todas as suas finanças? Esta ação excluirá permanentemente todos os lançamentos de receitas e despesas registradas e seu saldo retornará para <strong className="text-rose-400">R$ 0,00</strong>.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-800 text-xs font-tech text-slate-400 hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  onResetFinances();
+                  playJarvisBeep(520, 0.08);
+                  setIsResetConfirmOpen(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-tech font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sim, Zerar Minhas Finanças</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

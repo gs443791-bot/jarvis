@@ -20,7 +20,10 @@ import {
   Film,
   ExternalLink,
   Download,
-  Sparkles
+  Sparkles,
+  Plus,
+  Trash2,
+  X
 } from 'lucide-react';
 import { SmartDevice } from '../types';
 import { playJarvisBeep, playChime } from '../utils/audio';
@@ -33,6 +36,8 @@ interface SmartThingsPanelProps {
   onExecuteCommand: (deviceId: string, command: string, value?: number) => void;
   onAddXp: (amount: number, reason: string) => void;
   onSetAllDevices?: (devices: SmartDevice[]) => void;
+  onAddDevice: (newDevice: SmartDevice) => void;
+  onRemoveDevice: (deviceId: string) => void;
 }
 
 export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
@@ -42,15 +47,29 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
   onUpdateDevice,
   onExecuteCommand,
   onAddXp,
-  onSetAllDevices
+  onSetAllDevices,
+  onAddDevice,
+  onRemoveDevice
 }) => {
   const [tokenInput, setTokenInput] = useState(smartThingsToken);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isTestingToken, setIsTestingToken] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [detectedRealDevices, setDetectedRealDevices] = useState<any[]>([]);
+  
+  // Add & Remove Device Modals State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [deviceToDelete, setDeviceToDelete] = useState<SmartDevice | null>(null);
+
+  // New device form inputs
+  const [newDeviceName, setNewDeviceName] = useState('');
+  const [newDeviceRoom, setNewDeviceRoom] = useState('Sala de Estar');
+  const [newDeviceType, setNewDeviceType] = useState<SmartDevice['type']>('light');
+  const [newDeviceWatts, setNewDeviceWatts] = useState(15);
+  const [newSmartThingsId, setNewSmartThingsId] = useState('');
+
   const [logs, setLogs] = useState<string[]>([
-    `[${new Date().toLocaleTimeString('pt-BR')}] Hub SmartThings inicializado. 6 dispositivos sincronizados.`,
+    `[${new Date().toLocaleTimeString('pt-BR')}] Hub SmartThings inicializado. ${devices.length} dispositivos sincronizados.`,
     `[${new Date().toLocaleTimeString('pt-BR')}] Protocolo de automação residencial monitorando telemetria.`
   ]);
 
@@ -241,6 +260,42 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
     });
   };
 
+  const handleCreateDevice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeviceName.trim()) return;
+
+    const newId = newSmartThingsId.trim() || `device-${Date.now()}`;
+    const newDevice: SmartDevice = {
+      id: newId,
+      name: newDeviceName.trim(),
+      room: newDeviceRoom.trim() || 'Residência',
+      type: newDeviceType,
+      status: newDeviceType === 'lock' ? 'locked' : newDeviceType === 'curtain' ? 'open' : 'off',
+      value: newDeviceType === 'thermostat' ? 22 : newDeviceType === 'light' ? 80 : undefined,
+      powerConsumptionWatts: Number(newDeviceWatts) || 15,
+      lastUpdated: new Date().toISOString()
+    };
+
+    onAddDevice(newDevice);
+    playChime();
+    addLog(`Dispositivo '${newDevice.name}' adicionado à ${newDevice.room}.`);
+    onAddXp(25, 'Novo dispositivo conectado ao Stark Hub');
+
+    // Reset form
+    setNewDeviceName('');
+    setNewSmartThingsId('');
+    setIsAddModalOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deviceToDelete) return;
+    const devName = deviceToDelete.name;
+    onRemoveDevice(deviceToDelete.id);
+    playJarvisBeep(640, 0.08);
+    addLog(`Dispositivo '${devName}' desconectado e removido do sistema.`);
+    setDeviceToDelete(null);
+  };
+
   // Calculate total power consumption
   const totalWatts = devices.reduce((sum, d) => {
     if (d.status === 'on' && d.powerConsumptionWatts) {
@@ -276,11 +331,22 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
           </div>
 
           <button
+            onClick={() => {
+              playJarvisBeep(920, 0.05);
+              setIsAddModalOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-slate-950 text-xs font-tech font-bold flex items-center gap-1.5 shadow-md glow-cyan-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Adicionar Dispositivo</span>
+          </button>
+
+          <button
             onClick={() => setIsConfigOpen(!isConfigOpen)}
             className="px-3 py-2 rounded-xl border border-cyan-800 bg-slate-900/80 hover:border-cyan-400 text-cyan-300 text-xs font-tech flex items-center gap-2 transition-all"
           >
             <Settings className="w-4 h-4 text-cyan-400" />
-            <span>Configurar SmartThings Token</span>
+            <span className="hidden sm:inline">Configurar Token</span>
           </button>
         </div>
       </div>
@@ -525,18 +591,32 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
                     </div>
                   </div>
 
-                  {/* Toggle Button */}
-                  <button
-                    onClick={() => handleToggleDevice(device)}
-                    className={`p-2.5 rounded-xl border transition-all ${
-                      isOn
-                        ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
-                        : 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
-                    }`}
-                    title="Alternar estado"
-                  >
-                    <Power className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* Toggle Button */}
+                    <button
+                      onClick={() => handleToggleDevice(device)}
+                      className={`p-2.5 rounded-xl border transition-all ${
+                        isOn
+                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
+                          : 'border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300'
+                      }`}
+                      title="Alternar estado"
+                    >
+                      <Power className="w-4 h-4" />
+                    </button>
+
+                    {/* Delete Device Button */}
+                    <button
+                      onClick={() => {
+                        playJarvisBeep(600, 0.05);
+                        setDeviceToDelete(device);
+                      }}
+                      className="p-2.5 rounded-xl border border-transparent hover:border-rose-900/60 bg-slate-900/40 hover:bg-rose-950/50 text-slate-500 hover:text-rose-400 transition-all"
+                      title={`Remover ${device.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Sub-controls for level/temperature */}
@@ -639,6 +719,192 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
           ))}
         </div>
       </div>
+
+      {/* MODAL: Adicionar Novo Dispositivo */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="hud-panel rounded-3xl p-6 sm:p-7 border border-cyan-400/50 bg-slate-950 w-full max-w-lg space-y-5 relative shadow-2xl max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-900 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-cyan-500/40 bg-cyan-950/60 text-cyan-300 text-xs font-hud">
+                <Plus className="w-3.5 h-3.5 text-cyan-400" />
+                <span>EXPANSÃO RESIDENCIAL STARK HUB</span>
+              </div>
+              <h3 className="text-lg font-hud font-bold text-slate-100 mt-1">
+                Adicionar Novo Dispositivo
+              </h3>
+              <p className="text-xs text-slate-400 font-sans">
+                Cadastre um novo dispositivo inteligente para monitoramento, automações e controle por voz do J.A.R.V.I.S.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateDevice} className="space-y-4">
+              <div>
+                <label className="text-xs font-hud text-cyan-300 block mb-1">
+                  NOME DO DISPOSITIVO *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newDeviceName}
+                  onChange={(e) => setNewDeviceName(e.target.value)}
+                  placeholder="ex: Lâmpada de Leitura, Ar Quarto Casal, TV QLED..."
+                  className="w-full bg-slate-900 border border-cyan-900 rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-sans"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-hud text-cyan-300 block mb-1">
+                    CÔMODO / LOCAL
+                  </label>
+                  <select
+                    value={newDeviceRoom}
+                    onChange={(e) => setNewDeviceRoom(e.target.value)}
+                    className="w-full bg-slate-900 border border-cyan-900 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-sans"
+                  >
+                    <option value="Sala de Estar">Sala de Estar</option>
+                    <option value="Quarto Principal">Quarto Principal</option>
+                    <option value="Escritório / Setup">Escritório / Setup</option>
+                    <option value="Cozinha">Cozinha</option>
+                    <option value="Varanda Gourmet">Varanda Gourmet</option>
+                    <option value="Entrada / Hall">Entrada / Hall</option>
+                    <option value="Garagem">Garagem</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-hud text-cyan-300 block mb-1">
+                    CONSUMO ESTIMADO (WATTS)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5000"
+                    value={newDeviceWatts}
+                    onChange={(e) => setNewDeviceWatts(parseInt(e.target.value) || 0)}
+                    className="w-full bg-slate-900 border border-cyan-900 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 font-sans"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-hud text-cyan-300 block mb-1.5">
+                  TIPO DE DISPOSITIVO
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-tech">
+                  {[
+                    { type: 'light', label: 'Lâmpada', icon: Lightbulb, watts: 15 },
+                    { type: 'thermostat', label: 'Ar-Condicionado', icon: Wind, watts: 850 },
+                    { type: 'lock', label: 'Fechadura Digital', icon: Lock, watts: 5 },
+                    { type: 'curtain', label: 'Cortina / Persiana', icon: Sliders, watts: 20 },
+                    { type: 'tv', label: 'Smart TV', icon: Tv, watts: 120 },
+                    { type: 'switch', label: 'Tomada Inteligente', icon: Zap, watts: 45 }
+                  ].map((item) => {
+                    const IconComponent = item.icon;
+                    const isSelected = newDeviceType === item.type;
+                    return (
+                      <button
+                        type="button"
+                        key={item.type}
+                        onClick={() => {
+                          setNewDeviceType(item.type as any);
+                          setNewDeviceWatts(item.watts);
+                        }}
+                        className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all ${
+                          isSelected
+                            ? 'border-cyan-400 bg-cyan-950/80 text-cyan-200 glow-cyan-sm'
+                            : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <IconComponent className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                        <span className="font-semibold text-[11px]">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-hud text-slate-400 block mb-1">
+                  ID SMARTTHINGS (OPCIONAL)
+                </label>
+                <input
+                  type="text"
+                  value={newSmartThingsId}
+                  onChange={(e) => setNewSmartThingsId(e.target.value)}
+                  placeholder="Deixe em branco para gerar ID automático local"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-mono text-[11px]"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3 border-t border-cyan-950">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-800 text-xs font-tech text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-slate-950 font-tech font-bold text-xs shadow-md glow-cyan-sm"
+                >
+                  Salvar Dispositivo (+25 XP)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Confirmação de Remoção de Dispositivo */}
+      {deviceToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="hud-panel rounded-3xl p-6 border border-rose-500/50 bg-slate-950 w-full max-w-md space-y-4 relative shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-400 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-hud font-bold text-slate-100">
+                  Desconectar Dispositivo
+                </h3>
+                <p className="text-xs text-slate-400 font-sans">
+                  Confirmação de exclusão do Stark Hub
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 font-sans leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+              Tem certeza que deseja remover o dispositivo{' '}
+              <strong className="text-cyan-300">"{deviceToDelete.name}"</strong> localizado em{' '}
+              <span className="text-slate-200">({deviceToDelete.room})</span>? Ele deixará de responder aos comandos de voz e rotinas.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setDeviceToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-slate-800 text-xs font-tech text-slate-400 hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-tech font-bold text-xs shadow-md transition-all"
+              >
+                Confirmar Remoção
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

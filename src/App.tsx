@@ -184,6 +184,22 @@ export default function App() {
     setStoredData(STORAGE_KEYS.SMART_DEVICES, newDevices);
   };
 
+  const handleAddDevice = (newDevice: SmartDevice) => {
+    setSmartDevices((prev) => {
+      const updated = [newDevice, ...prev];
+      setStoredData(STORAGE_KEYS.SMART_DEVICES, updated);
+      return updated;
+    });
+  };
+
+  const handleRemoveDevice = (deviceId: string) => {
+    setSmartDevices((prev) => {
+      const updated = prev.filter((d) => d.id !== deviceId);
+      setStoredData(STORAGE_KEYS.SMART_DEVICES, updated);
+      return updated;
+    });
+  };
+
   const handleSaveToken = (token: string) => {
     setSmartThingsToken(token);
     setStoredData(STORAGE_KEYS.SMARTTHINGS_TOKEN, token);
@@ -214,6 +230,22 @@ export default function App() {
 
   const handleDeleteEvent = (evtId: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== evtId));
+    playJarvisBeep(600, 0.04);
+  };
+
+  // Finance handlers
+  const handleResetFinances = () => {
+    setFinances([]);
+    setStoredData(STORAGE_KEYS.FINANCES, []);
+    playJarvisBeep(520, 0.08);
+  };
+
+  const handleDeleteTransaction = (transId: string) => {
+    setFinances((prev) => {
+      const updated = prev.filter((t) => t.id !== transId);
+      setStoredData(STORAGE_KEYS.FINANCES, updated);
+      return updated;
+    });
     playJarvisBeep(600, 0.04);
   };
 
@@ -302,6 +334,8 @@ export default function App() {
             onExecuteCommand={handleExecuteDeviceCommand}
             onAddXp={handleAddXp}
             onSetAllDevices={handleSetAllDevices}
+            onAddDevice={handleAddDevice}
+            onRemoveDevice={handleRemoveDevice}
           />
         )}
 
@@ -323,6 +357,8 @@ export default function App() {
             transactions={finances}
             goals={goals}
             onAddTransaction={(trans) => setFinances((prev) => [trans, ...prev])}
+            onResetFinances={handleResetFinances}
+            onDeleteTransaction={handleDeleteTransaction}
             onAddXp={handleAddXp}
           />
         )}
