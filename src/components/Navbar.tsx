@@ -56,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const navItems = [
     { id: 'hud', label: 'J.A.R.V.I.S. Core', icon: Zap },
-    { id: 'smartthings', label: 'Casa SmartThings', icon: Shield },
+    { id: 'smartthings', label: 'Casa Inteligente', icon: Shield },
     { id: 'routine', label: 'Rotina & Calendário', icon: Clock },
     { id: 'finance', label: 'Mentor Financeiro', icon: Activity },
     { id: 'spiritual', label: 'Espiritual & Versículos', icon: Sparkles },

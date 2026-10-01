@@ -190,7 +190,7 @@ export const SmartThingsPanel: React.FC<SmartThingsPanelProps> = ({
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-cyan-400" />
             <h2 className="font-hud font-bold text-lg text-cyan-100 tracking-wider">
-              CENTRAL DE AUTOMAÇÃO SAMSUNG SMARTTHINGS
+              CENTRAL DE CASA INTELIGENTE
             </h2>
           </div>
           <p className="text-xs text-slate-400 font-tech mt-1">
