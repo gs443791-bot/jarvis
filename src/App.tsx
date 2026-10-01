@@ -15,6 +15,7 @@ import { WeeklyReportPanel } from './components/WeeklyReportPanel';
 import { GmailPanel } from './components/GmailPanel';
 import { CalmProtocolModal } from './components/CalmProtocolModal';
 import { DailyBriefingModal } from './components/DailyBriefingModal';
+import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 
 import {
   SmartDevice,
@@ -80,6 +81,7 @@ export default function App() {
   // Modals state
   const [isCalmOpen, setIsCalmOpen] = useState(false);
   const [isBriefingOpen, setIsBriefingOpen] = useState(false);
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [xpToast, setXpToast] = useState<{ amount: number; reason: string } | null>(null);
 
@@ -265,6 +267,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         onOpenCalm={() => setIsCalmOpen(true)}
         onOpenBriefing={() => setIsBriefingOpen(true)}
+        onOpenVoiceSettings={() => setIsVoiceSettingsOpen(true)}
         isAudioMuted={isAudioMuted}
         setIsAudioMuted={setIsAudioMuted}
       />
@@ -279,6 +282,7 @@ export default function App() {
             onExecuteDeviceCommand={handleExecuteDeviceCommand}
             onOpenCalm={() => setIsCalmOpen(true)}
             onOpenBriefing={() => setIsBriefingOpen(true)}
+            onOpenVoiceSettings={() => setIsVoiceSettingsOpen(true)}
             onNavigateTab={(tab) => setActiveTab(tab)}
             onAddXp={handleAddXp}
           />
@@ -354,6 +358,12 @@ export default function App() {
       <DailyBriefingModal
         isOpen={isBriefingOpen}
         onClose={() => setIsBriefingOpen(false)}
+        onAddXp={handleAddXp}
+      />
+
+      <VoiceSettingsModal
+        isOpen={isVoiceSettingsOpen}
+        onClose={() => setIsVoiceSettingsOpen(false)}
         onAddXp={handleAddXp}
       />
 

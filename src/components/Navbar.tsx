@@ -9,7 +9,8 @@ import {
   FileText,
   Clock,
   Sparkles,
-  Mail
+  Mail,
+  Headphones
 } from 'lucide-react';
 import { GamificationState } from '../types';
 import { playJarvisBeep } from '../utils/audio';
@@ -20,6 +21,7 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   onOpenCalm: () => void;
   onOpenBriefing: () => void;
+  onOpenVoiceSettings: () => void;
   isAudioMuted: boolean;
   setIsAudioMuted: (muted: boolean) => void;
 }
@@ -30,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   onOpenCalm,
   onOpenBriefing,
+  onOpenVoiceSettings,
   isAudioMuted,
   setIsAudioMuted
 }) => {
@@ -162,6 +165,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">Briefing Matinal</span>
             <span className="sm:hidden">Briefing</span>
+          </button>
+
+          {/* Voice of Movie Configuration Button */}
+          <button
+            onClick={() => {
+              playJarvisBeep(1000, 0.05);
+              onOpenVoiceSettings();
+            }}
+            className="px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-slate-900/80 hover:border-cyan-400 text-cyan-300 hover:text-white flex items-center gap-1.5 text-xs font-tech font-semibold transition-all shadow-sm"
+            title="Calibrar a voz do J.A.R.V.I.S. (Dublagem Brasil / Paul Bettany & Efeito Capacete HUD)"
+          >
+            <Headphones className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Voz do Filme</span>
           </button>
         </div>
 

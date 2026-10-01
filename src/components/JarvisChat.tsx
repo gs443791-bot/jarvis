@@ -12,14 +12,15 @@ import {
   Activity,
   Terminal,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Headphones
 } from 'lucide-react';
 import { ArcReactor } from './ArcReactor';
 import { ChatMessage, SmartDevice, TaskItem, GamificationState } from '../types';
 import {
   playJarvisBeep,
   playChime,
-  speakText,
+  speakJarvis,
   stopSpeaking,
   createSpeechRecognizer
 } from '../utils/audio';
@@ -31,6 +32,7 @@ interface JarvisChatProps {
   onExecuteDeviceCommand: (deviceId: string, command: string, value?: number) => void;
   onOpenCalm: () => void;
   onOpenBriefing: () => void;
+  onOpenVoiceSettings: () => void;
   onNavigateTab: (tabId: string) => void;
   onAddXp: (amount: number, reason: string) => void;
 }
@@ -42,6 +44,7 @@ export const JarvisChat: React.FC<JarvisChatProps> = ({
   onExecuteDeviceCommand,
   onOpenCalm,
   onOpenBriefing,
+  onOpenVoiceSettings,
   onNavigateTab,
   onAddXp
 }) => {
@@ -267,12 +270,12 @@ Como posso servi-lo agora?`,
       playChime();
       onAddXp(20, 'Interação com J.A.R.V.I.S.');
 
-      // Voice synthesis
+      // Voice synthesis (Movie Grade with Holographic DSP)
       if (autoVoiceReply && reply) {
         setIsSpeaking(true);
         // Clean markdown symbols for cleaner voice pronunciation
         const cleanForSpeech = reply.replace(/[*#_`>]/g, '');
-        speakText(cleanForSpeech, () => {
+        speakJarvis(cleanForSpeech, undefined, () => {
           setIsSpeaking(false);
         });
       }
@@ -353,7 +356,16 @@ Como posso servi-lo agora?`,
               title="Voz do JARVIS ao responder"
             >
               {autoVoiceReply ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-              <span>Voz Neural: {autoVoiceReply ? 'Ligada' : 'Muda'}</span>
+              <span>Voz: {autoVoiceReply ? 'Ligada' : 'Muda'}</span>
+            </button>
+
+            <button
+              onClick={onOpenVoiceSettings}
+              className="px-3 py-1.5 rounded-lg text-xs font-tech border border-cyan-800 bg-slate-900/80 hover:border-cyan-400 text-cyan-300 hover:text-white transition-all flex items-center gap-1.5"
+              title="Calibrar Voz do Filme (Dublagem Brasil / Paul Bettany & Efeito Capacete HUD)"
+            >
+              <Headphones className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Voz do Filme</span>
             </button>
 
             {isSpeaking && (
